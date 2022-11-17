@@ -3,7 +3,7 @@ title: "Hands-on Exercise 1: Geospatial Data Wrangling with R"
 editor: visual
 ---
 
-## Overview 
+## Overview
 
 In this hands on exercise, I learnt the aspects of importing and wrangling geospatial data using appropriate R packages.
 
@@ -21,4 +21,78 @@ pacman::p_load(sf,tidyverse)
 
 ```{r}
 mpsz <- st_read(dsn="data/geospatial",layer = "MP14_SUBZONE_WEB_PL")
+```
+
+### Import polyline feature data
+
+```{r}
+cyclingpath = st_read(dsn = "data/geospatial", 
+                         layer = "CyclingPath")
+```
+
+Import GIS data in kml format
+
+```{r}
+preschool = st_read("data/geospatial/pre-schools-location-kml.kml")
+```
+
+## Check content of simple feature data frame
+
+### Working with st_geometry
+
+```{r}
+st_geometry(mpsz)
+```
+
+### Working with glimpse
+
+```{r}
+glimpse(mpsz)
+```
+
+### Working with head()
+
+```{r}
+head(mpsz, n=5)  
+```
+
+## Plotting the geospatial data
+
+```{r}
+plot(mpsz)
+```
+
+```{r}
+plot(st_geometry(mpsz))
+```
+
+```{r}
+plot(mpsz["PLN_AREA_N"])
+```
+
+## Working with projection
+
+### Assign EPSG code to a simple feature data frame
+
+```{r}
+st_crs(mpsz)
+```
+
+```{r}
+mpsz3414 <- st_transform(mpsz, 3414)
+```
+
+```{r}
+st_crs(mpsz3414)
+```
+
+### Transforming the projection of preschool from wgs84 to svy21
+
+```{r}
+preschool3414 <- st_transform(preschool, 
+                              crs = 3414)
+```
+
+```{r}
+st_geometry(preschool3414)
 ```
