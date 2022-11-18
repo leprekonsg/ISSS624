@@ -1,0 +1,4 @@
+---
+title: "Hands-on Exercise 1: Choropleth Mapping with R"
+editor: visual
+---

@@ -7,6 +7,27 @@
     "text": "1 + 1\n\n[1] 2"
   },
   {
+    "objectID": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html",
+    "href": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html",
+    "title": "Hands-on Exercise 1: Choropleth Mapping with R",
+    "section": "",
+    "text": "pacman::p_load(sf, tmap, tidyverse)"
+  },
+  {
+    "objectID": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html#importing-data-into-r",
+    "href": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html#importing-data-into-r",
+    "title": "Hands-on Exercise 1: Choropleth Mapping with R",
+    "section": "Importing Data into R",
+    "text": "Importing Data into R\n\nImporting Geospatial Data into R\n\nmpsz <- st_read(dsn = \"data/geospatial\", \n                layer = \"MP14_SUBZONE_WEB_PL\")\n\nReading layer `MP14_SUBZONE_WEB_PL' from data source \n  `C:\\leprekonsg\\ISSS624\\Hands-on_Ex1\\data\\geospatial' using driver `ESRI Shapefile'\nSimple feature collection with 323 features and 15 fields\nGeometry type: MULTIPOLYGON\nDimension:     XY\nBounding box:  xmin: 2667.538 ymin: 15748.72 xmax: 56396.44 ymax: 50256.33\nProjected CRS: SVY21\n\n\n\n\nImporting Attribute Data into R\n\npopdata <- read_csv(\"data/aspatial/respopagesextod2011to2020.csv\")\n\nRows: 984656 Columns: 7\n── Column specification ────────────────────────────────────────────────────────\nDelimiter: \",\"\nchr (5): PA, SZ, AG, Sex, TOD\ndbl (2): Pop, Time\n\nℹ Use `spec()` to retrieve the full column specification for this data.\nℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.\n\n\n\n\nData Preparation\n\nData Wrangling\n\npopdata2020 <- popdata %>%\n  filter(Time == 2020) %>%\n  group_by(PA, SZ, AG) %>%\n  summarise(`POP` = sum(`Pop`)) %>%\n  ungroup()%>%\n  pivot_wider(names_from=AG, \n              values_from=POP) %>%\n  mutate(YOUNG = rowSums(.[3:6])\n         +rowSums(.[12])) %>%\nmutate(`ECONOMY ACTIVE` = rowSums(.[7:11])+\nrowSums(.[13:15]))%>%\nmutate(`AGED`=rowSums(.[16:21])) %>%\nmutate(`TOTAL`=rowSums(.[3:21])) %>%  \nmutate(`DEPENDENCY` = (`YOUNG` + `AGED`)\n/`ECONOMY ACTIVE`) %>%\n  select(`PA`, `SZ`, `YOUNG`, \n       `ECONOMY ACTIVE`, `AGED`, \n       `TOTAL`, `DEPENDENCY`)\n\n`summarise()` has grouped output by 'PA', 'SZ'. You can override using the\n`.groups` argument.\n\n\n\n\nJoining the Attribute Data and Geospatial Data\n\npopdata2020 <- popdata2020 %>%\n  mutate_at(.vars = vars(PA, SZ), \n          .funs = funs(toupper)) %>%\n  filter(`ECONOMY ACTIVE` > 0)\n\nWarning: `funs()` was deprecated in dplyr 0.8.0.\nℹ Please use a list of either functions or lambdas:\n\n# Simple named list: list(mean = mean, median = median)\n\n# Auto named with `tibble::lst()`: tibble::lst(mean, median)\n\n# Using lambdas list(~ mean(., trim = .2), ~ median(., na.rm = TRUE))\n\n\n\nmpsz_pop2020 <- left_join(mpsz, popdata2020,\n                          by = c(\"SUBZONE_N\" = \"SZ\"))\n\n\nwrite_rds(mpsz_pop2020, \"data/rds/mpszpop2020.rds\")"
+  },
+  {
+    "objectID": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html#choropleth-mapping-geospatial-data-using-tmap",
+    "href": "Hands-on_Ex1/Hands-on_Ex1(cloreth).html#choropleth-mapping-geospatial-data-using-tmap",
+    "title": "Hands-on Exercise 1: Choropleth Mapping with R",
+    "section": "Choropleth Mapping Geospatial Data using tmap",
+    "text": "Choropleth Mapping Geospatial Data using tmap\n\nplotting a Choropleth map quickly using qtm()\n\ntmap_mode(\"plot\")\n\ntmap mode set to plotting\n\nqtm(mpsz_pop2020, \n    fill = \"DEPENDENCY\")\n\n\n\n\n\n\nCreating a choropleth map using tmap’s elements\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\", \n          style = \"quantile\", \n          palette = \"Blues\",\n          title = \"Dependency ratio\") +\n  tm_layout(main.title = \"Distribution of Dependency Ratio by planning subzone\",\n            main.title.position = \"center\",\n            main.title.size = 1.2,\n            legend.height = 0.45, \n            legend.width = 0.35,\n            frame = TRUE) +\n  tm_borders(alpha = 0.5) +\n  tm_compass(type=\"8star\", size = 2) +\n  tm_scale_bar() +\n  tm_grid(alpha =0.2) +\n  tm_credits(\"Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)\\n and Population data from Department of Statistics DOS\", \n             position = c(\"left\", \"bottom\"))\n\n\n\n\n\nDrawing a base map\n\ntm_shape(mpsz_pop2020) +\n  tm_polygons()\n\n\n\n\n\n\nDrawing a choropleth map using tm_polygons\n\ntm_shape(mpsz_pop2020)+\n  tm_polygons(\"DEPENDENCY\")\n\n\n\n\n\n\nDrawing a choropleth map using tm_fill() and *tm_border()**\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\")\n\n\n\n\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\") +\n  tm_borders(lwd = 0.1,  alpha = 1)\n\n\n\n\n\n\n\nData classification methods of tmap\n\nPlotting choropleth maps with built-in classification methods\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\",\n          n = 5,\n          style = \"jenks\") +\n  tm_borders(alpha = 0.5)\n\n\n\n\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\",\n          n = 5,\n          style = \"equal\") +\n  tm_borders(alpha = 0.5)\n\n\n\n\n\n\nPlotting choropleth map with custom breaks\n\nsummary(mpsz_pop2020$DEPENDENCY)\n\n   Min. 1st Qu.  Median    Mean 3rd Qu.    Max.    NA's \n 0.0000  0.6519  0.7025  0.7742  0.7645 19.0000      92 \n\n\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\",\n          breaks = c(0, 0.60, 0.70, 0.80, 0.90, 1.00)) +\n  tm_borders(alpha = 0.5)\n\nWarning: Values have found that are higher than the highest break\n\n\n\n\n\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\",\n          n = 6,\n          style = \"quantile\",\n          palette = \"Blues\") +\n  tm_borders(alpha = 0.5)\n\n\n\n\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\",\n          style = \"quantile\",\n          palette = \"-Greens\") +\n  tm_borders(alpha = 0.5)\n\n\n\n\n\n\n\nMap Layouts\n\nMap Legend\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\", \n          style = \"jenks\", \n          palette = \"Blues\", \n          legend.hist = TRUE, \n          legend.is.portrait = TRUE,\n          legend.hist.z = 0.1) +\n  tm_layout(main.title = \"Distribution of Dependency Ratio by planning subzone \\n(Jenks classification)\",\n            main.title.position = \"center\",\n            main.title.size = 1,\n            legend.height = 0.45, \n            legend.width = 0.35,\n            legend.outside = FALSE,\n            legend.position = c(\"right\", \"bottom\"),\n            frame = FALSE) +\n  tm_borders(alpha = 0.5)\n\n\n\n\n\n\nMap style\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\", \n          style = \"quantile\", \n          palette = \"-Greens\") +\n  tm_borders(alpha = 0.5) +\n  tmap_style(\"classic\")\n\ntmap style set to \"classic\"\n\n\nother available styles are: \"white\", \"gray\", \"natural\", \"cobalt\", \"col_blind\", \"albatross\", \"beaver\", \"bw\", \"watercolor\" \n\n\n\n\n\n\n\nCartographic Furniture\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(\"DEPENDENCY\", \n          style = \"quantile\", \n          palette = \"Blues\",\n          title = \"No. of persons\") +\n  tm_layout(main.title = \"Distribution of Dependency Ratio \\nby planning subzone\",\n            main.title.position = \"center\",\n            main.title.size = 1.2,\n            legend.height = 0.45, \n            legend.width = 0.35,\n            frame = TRUE) +\n  tm_borders(alpha = 0.5) +\n  tm_compass(type=\"8star\", size = 2) +\n  tm_scale_bar(width = 0.15) +\n  tm_grid(lwd = 0.1, alpha = 0.2) +\n  tm_credits(\"Source: Planning Sub-zone boundary from Urban Redevelopment Authorithy (URA)\\n and Population data from Department of Statistics DOS\", \n             position = c(\"left\", \"bottom\"))\n\n\n\n\n\ntmap_style(\"white\")\n\ntmap style set to \"white\"\n\n\nother available styles are: \"gray\", \"natural\", \"cobalt\", \"col_blind\", \"albatross\", \"beaver\", \"bw\", \"classic\", \"watercolor\" \n\n\n\n\n\nDrawing Small Multiple Choropleth Maps\n\nBy assigning multiple values to at least one of the aesthetic arguments\n\ntm_shape(mpsz_pop2020)+\n  tm_fill(c(\"YOUNG\", \"AGED\"),\n          style = \"equal\", \n          palette = \"Blues\") +\n  tm_layout(legend.position = c(\"right\", \"bottom\")) +\n  tm_borders(alpha = 0.5) +\n  tmap_style(\"white\")\n\ntmap style set to \"white\"\n\n\nother available styles are: \"gray\", \"natural\", \"cobalt\", \"col_blind\", \"albatross\", \"beaver\", \"bw\", \"classic\", \"watercolor\" \n\n\n\n\n\n\ntm_shape(mpsz_pop2020)+ \n  tm_polygons(c(\"DEPENDENCY\",\"AGED\"),\n          style = c(\"equal\", \"quantile\"), \n          palette = list(\"Blues\",\"Greens\")) +\n  tm_layout(legend.position = c(\"right\", \"bottom\"))\n\n\n\n\n\n\nBy defining a group-by variable in tm_facets()\n\ntm_shape(mpsz_pop2020) +\n  tm_fill(\"DEPENDENCY\",\n          style = \"quantile\",\n          palette = \"Blues\",\n          thres.poly = 0) + \n  tm_facets(by=\"REGION_N\", \n            free.coords=TRUE, \n            drop.shapes=TRUE) +\n  tm_layout(legend.show = FALSE,\n            title.position = c(\"center\", \"center\"), \n            title.size = 20) +\n  tm_borders(alpha = 0.5)\n\nWarning: The argument drop.shapes has been renamed to drop.units, and is\ntherefore deprecated\n\n\n\n\n\n\n\nBy creating multiple stand-alone maps with tmap_arrange()\n\nyoungmap <- tm_shape(mpsz_pop2020)+ \n  tm_polygons(\"YOUNG\", \n              style = \"quantile\", \n              palette = \"Blues\")\n\nagedmap <- tm_shape(mpsz_pop2020)+ \n  tm_polygons(\"AGED\", \n              style = \"quantile\", \n              palette = \"Blues\")\n\ntmap_arrange(youngmap, agedmap, asp=1, ncol=2)\n\n\n\n\n\n\n\nMappping Spatial Object Meeting a Selection Criterion\n\ntm_shape(mpsz_pop2020[mpsz_pop2020$REGION_N==\"CENTRAL REGION\", ])+\n  tm_fill(\"DEPENDENCY\", \n          style = \"quantile\", \n          palette = \"Blues\", \n          legend.hist = TRUE, \n          legend.is.portrait = TRUE,\n          legend.hist.z = 0.1) +\n  tm_layout(legend.outside = TRUE,\n            legend.height = 0.45, \n            legend.width = 5.0,\n            legend.position = c(\"right\", \"bottom\"),\n            frame = FALSE) +\n  tm_borders(alpha = 0.5)\n\nWarning in pre_process_gt(x, interactive = interactive, orig_crs =\ngm$shape.orig_crs): legend.width controls the width of the legend within a map.\nPlease use legend.outside.size to control the width of the outside legend"
+  },
+  {
     "objectID": "Hands-on_Ex1/Hands-on_Ex1.html",
     "href": "Hands-on_Ex1/Hands-on_Ex1.html",
     "title": "Hands-on Exercise 1: Geospatial Data Wrangling with R",
@@ -26,27 +47,6 @@
     "title": "Hands-on Exercise 1: Geospatial Data Wrangling with R",
     "section": "Import Geospatial Data",
     "text": "Import Geospatial Data\n\nImport polygon feature data\n\nmpsz <- st_read(dsn=\"data/geospatial\",layer = \"MP14_SUBZONE_WEB_PL\")\n\nReading layer `MP14_SUBZONE_WEB_PL' from data source \n  `C:\\leprekonsg\\ISSS624\\Hands-on_Ex1\\data\\geospatial' using driver `ESRI Shapefile'\nSimple feature collection with 323 features and 15 fields\nGeometry type: MULTIPOLYGON\nDimension:     XY\nBounding box:  xmin: 2667.538 ymin: 15748.72 xmax: 56396.44 ymax: 50256.33\nProjected CRS: SVY21\n\n\n\n\nImport polyline feature data\n\ncyclingpath = st_read(dsn = \"data/geospatial\", \n                         layer = \"CyclingPath\")\n\nReading layer `CyclingPath' from data source \n  `C:\\leprekonsg\\ISSS624\\Hands-on_Ex1\\data\\geospatial' using driver `ESRI Shapefile'\nSimple feature collection with 1625 features and 2 fields\nGeometry type: LINESTRING\nDimension:     XY\nBounding box:  xmin: 12711.19 ymin: 28711.33 xmax: 42626.09 ymax: 48948.15\nProjected CRS: SVY21\n\n\nImport GIS data in kml format\n\npreschool = st_read(\"data/geospatial/pre-schools-location-kml.kml\")\n\nReading layer `PRESCHOOLS_LOCATION' from data source \n  `C:\\leprekonsg\\ISSS624\\Hands-on_Ex1\\data\\geospatial\\pre-schools-location-kml.kml' \n  using driver `KML'\nSimple feature collection with 1359 features and 2 fields\nGeometry type: POINT\nDimension:     XYZ\nBounding box:  xmin: 103.6824 ymin: 1.248403 xmax: 103.9897 ymax: 1.462134\nz_range:       zmin: 0 zmax: 0\nGeodetic CRS:  WGS 84"
-  },
-  {
-    "objectID": "Hands-on_Ex1.html",
-    "href": "Hands-on_Ex1.html",
-    "title": "Hands-on Exercise 1",
-    "section": "",
-    "text": "This is the overview paragraph."
-  },
-  {
-    "objectID": "Hands-on_Ex1.html#getting-started",
-    "href": "Hands-on_Ex1.html#getting-started",
-    "title": "Hands-on Exercise 1",
-    "section": "Getting Started",
-    "text": "Getting Started\nThis is the getting started paragraph"
-  },
-  {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "ISSS624",
-    "section": "",
-    "text": "In this webpage I am going to share with you my learning journey of geospatial analytics :o"
   },
   {
     "objectID": "Hands-on_Ex1/Hands-on_Ex1.html#check-content-of-simple-feature-data-frame",
@@ -82,5 +82,26 @@
     "title": "Hands-on Exercise 1: Geospatial Data Wrangling with R",
     "section": "Geoprocessing with sf package",
     "text": "Geoprocessing with sf package\n\nbuffering\n\nbuffer_cycling <- st_buffer(cyclingpath, \n                               dist=5, nQuadSegs = 30)\n\n\nbuffer_cycling$AREA <- st_area(buffer_cycling)\n\n\nsum(buffer_cycling$AREA)\n\n773143.9 [m^2]\n\n\n\n\nPoint-in-polygon count\n\nmpsz3414$`PreSch Count`<- lengths(st_intersects(mpsz3414, preschool3414))\n\n\nsummary(mpsz3414$`PreSch Count`)\n\n   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. \n  0.000   0.000   2.000   4.207   6.000  37.000 \n\n\n\ntop_n(mpsz3414, 1, `PreSch Count`)\n\nSimple feature collection with 1 feature and 16 fields\nGeometry type: MULTIPOLYGON\nDimension:     XY\nBounding box:  xmin: 23449.05 ymin: 46001.23 xmax: 25594.22 ymax: 47996.47\nProjected CRS: SVY21 / Singapore TM\n  OBJECTID SUBZONE_NO      SUBZONE_N SUBZONE_C CA_IND PLN_AREA_N PLN_AREA_C\n1      290          3 WOODLANDS EAST    WDSZ03      N  WOODLANDS         WD\n      REGION_N REGION_C          INC_CRC FMEL_UPD_D   X_ADDR   Y_ADDR\n1 NORTH REGION       NR C90769E43EE6B0F2 2014-12-05 24506.64 46991.63\n  SHAPE_Leng SHAPE_Area                       geometry PreSch Count\n1   6603.608    2553464 MULTIPOLYGON (((24786.75 46...           37\n\n\n\nmpsz3414$Area <- mpsz3414 %>%\n  st_area()\n\n\nmpsz3414 <- mpsz3414 %>%\n  mutate(`PreSch Density` = `PreSch Count`/Area * 1000000)\n\nExploratory Data Analysis\n\nhist(mpsz3414$`PreSch Density`)\n\n\n\n\n\nggplot(data=mpsz3414, \n       aes(x= as.numeric(`PreSch Density`)))+\n  geom_histogram(bins=20, \n                 color=\"black\", \n                 fill=\"light blue\") +\n  labs(title = \"Are pre-school even distributed in Singapore?\",\n       subtitle= \"There are many planning sub-zones with a single pre-school, on the other hand, \\nthere are two planning sub-zones with at least 20 pre-schools\",\n      x = \"Pre-school density (per km sq)\",\n      y = \"Frequency\")\n\n\n\n\n\nlibrary(ggplot2)\nggplot(data=mpsz3414, aes(x= as.numeric(`PreSch Density`),y=as.numeric(`PreSch Count`))) + geom_point() + labs(x = \"Pre-school density (per km sq)\",y = \"Pre-school count\")"
+  },
+  {
+    "objectID": "Hands-on_Ex1.html",
+    "href": "Hands-on_Ex1.html",
+    "title": "Hands-on Exercise 1",
+    "section": "",
+    "text": "This is the overview paragraph."
+  },
+  {
+    "objectID": "Hands-on_Ex1.html#getting-started",
+    "href": "Hands-on_Ex1.html#getting-started",
+    "title": "Hands-on Exercise 1",
+    "section": "Getting Started",
+    "text": "Getting Started\nThis is the getting started paragraph"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "ISSS624",
+    "section": "",
+    "text": "In this webpage I am going to share with you my learning journey of geospatial analytics :o"
   }
 ]
