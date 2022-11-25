@@ -32,7 +32,7 @@ hunan2012 <- read_csv("../In-class_Ex/In-class_Ex1/data/aspatial/Hunan_2012.csv"
 hunan <- left_join(hunan,hunan2012)
 ```
 
-###  Visualising Regional Development Indicator
+### Visualising Regional Development Indicator
 
 ```{r}
 equal <- tm_shape(hunan) +
@@ -74,7 +74,9 @@ rswm_q <- nb2listw(wm_q,
 rswm_q
 ```
 
-### Global Spatial Autocorrelation: Moran\'s I
+### Global Spatial Autocorrelation: Moran's I
+
+### Moran's I test
 
 ```{r}
 moran.test(hunan$GDPPC, 
@@ -82,6 +84,8 @@ moran.test(hunan$GDPPC,
            zero.policy = TRUE, 
            na.action=na.omit)
 ```
+
+From the sample's Moran's I value of 0.3, we can tell that there is positive spatial autocorrelation or some sort of clustering and the low p-value indicates that null hypothesis that there is spatial randomness can be rejected.
 
 ### Computing Monte Carlo Moran's I
 
@@ -94,6 +98,8 @@ bperm= moran.mc(hunan$GDPPC,
                 na.action=na.omit)
 bperm
 ```
+
+With 1000 simulation, the sample's p-value remains significant and the Moran's I value remain around 0.3. Therefore we can be sure that there is positive spatial autocorrelation or some sort of clustering and the low p-value indicates that null hypothesis that there is spatial randomness can be rejected.
 
 ### Visualising Monte Carlo Moran's I
 
@@ -118,6 +124,8 @@ abline(v=0,
        col="red") 
 ```
 
+We can see that the distribution is just slightly skewed and there are more negative Moran's I than positive. That could also mean in many simulations, there is a slight negative spatial autocorrelation where similar neighbours are not really clustered together.
+
 ```{r}
 # p+ geom_vline(aes(xintercept=mean(weight)),
 #             color="blue", linetype="dashed", size=1)
@@ -141,6 +149,8 @@ ggplot(df, aes(x=bperm$res)) +
 geary.test(hunan$GDPPC, listw=rswm_q)
 ```
 
+Geary's C score for the sample is less than 1, which represents a potentially positive spatial correlation. p-value is low enough to reject the null hypothesis.
+
 #### Computing Monte Carlo Geary's C
 
 ```{r}
@@ -151,6 +161,8 @@ bperm=geary.mc(hunan$GDPPC,
 bperm
 
 ```
+
+Geary's C score for the sample used in the simulation is less than 1, which represents a potentially positive spatial correlation. p-value is low enough to reject the null hypothesis.
 
 #### Visualising the Monte Carlo Geary's C
 
@@ -171,6 +183,8 @@ hist(bperm$res, freq=TRUE, breaks=20, xlab="Simulated Geary c")
 abline(v=1, col="red") 
 ```
 
+The mean is very close to 1 which suggests that in most of simulation for Geary's c value, the samples are likely have random spatial autocorrelation or randomly dispersed.
+
 ## Spatial Correlogram
 
 ### Compute Moran's I correlogram
@@ -188,6 +202,8 @@ plot(MI_corr)
 print(MI_corr)
 ```
 
+4 has highest p-score as Moran's I score of 0 is near the middle of its distribution and therefore the null hypothesis cannot be rejected with confidence. The other 5 "lags" has low p-score which indicates the null hypothesis can be rejected with high confidence. From the plot we can also see that 0 does not lie in the distribution of their Moran's I values
+
 ### Compute Geary's C correlogram and plot
 
 ```{r}
@@ -198,6 +214,8 @@ GC_corr <- sp.correlogram(wm_q,
                           style="W")
 plot(GC_corr)
 ```
+
+Geary C's has more lags that cannot reject the null hypothesis with confidence.
 
 ```{r}
 print(GC_corr)
@@ -366,6 +384,8 @@ LISAmap <- tm_shape(hunan.localMI) +
 tmap_arrange(gdppc, LISAmap, asp=1, ncol=2)
 ```
 
+areas with higher GDPPC tend to cluster and have a higher weight on the Moran's I score and contributes more significantly to a positive global spatial autocorrelation
+
 ## Hot Spot and Cold Spot Area Analysis
 
 ### Deriving distance-based weight matrix
@@ -447,6 +467,8 @@ Gimap <-tm_shape(hunan.gi) +
 tmap_arrange(gdppc, Gimap, asp=1, ncol=2)
 ```
 
+The "hottest" cluster is one that is surrounded by areas with high GDPPC. The cold spots are also found in areas where a low GDPPC area is surrounded by low GDPPC areas.
+
 ### Gi statistics using adaptive distance
 
 ```{r}
@@ -473,3 +495,5 @@ tmap_arrange(gdppc,
              asp=1, 
              ncol=2)
 ```
+
+There are clear separations of cold spots and hot spots(with higher GDPPC) where hot spots mostly occupy the right hemishere.
