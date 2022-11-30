@@ -1,0 +1,688 @@
+---
+title: "In-class Exercise 2(Why Nigeria has so many broken waterpoints?)"
+execute: 
+  warning: false
+  message: false
+editor: visual
+---
+
+## Overview
+
+Many water points in Nigeria are non-functional and it could be insightful to look into whether there are additional reasons that causes these non-functional water points and if there is any spatial correlations that could be unearthed.
+
+## Getting Started
+
+We would be using R for this geospatial analysis and the R Packages used are :
+
+`sf` : preprocessing and importing of geospatial data
+
+`tidyverse` : facilitate the data science work flow
+
+`tmap` : Used for visualisation of the various plots used in this analysis
+
+`spdep` : Spatial weight analysis package
+
+`funModeling` : Usef for statistical modelling and visualisation
+
+```{r}
+pacman::p_load(sf,tidyverse,tmap,spdep,funModeling)
+```
+
+## Importing Geospatial Data
+
+File used for this analysis:
+
+-   geo_export \[file containing information of water points in Nigeria\]
+
+-   geoBoundaries-NGA-ADM2 \[contains geographical and boundary data for Nigeria under admin level 2\]
+
+### Importing water point geospatial data
+
+First of all we import the data and check if Geodetic CRS is same for both files
+
+```{r}
+#| eval: false
+#command above make sure quarto does not execute
+wp <- st_read(dsn = "geodata",
+        layer = "geo_export",
+        crs = 4326) %>%
+  filter(clean_coun == "Nigeria")
+```
+
+in the code chunk below, `write_rds()` of readr package is used to save the extracted sf data table into an output file in rds data format.
+
+```{r}
+#| eval: false
+wp_nga <- write_rds(wp,"geodata/wp_nga.rds")
+```
+
+Next `st_read` is used to read the geoboundaries file, here we confirm that the second file's Geodetic CRS is also WGS 84
+
+```{r}
+#| eval: false
+nga <- st_read(dsn = "geodata",
+              layer = "geoboundaries-NGA-ADM2")
+```
+
+Next, we reformat the NA values into string for easier processing
+
+```{r}
+#| eval: false
+wp_nga <- read_rds("geodata/wp_nga.rds") %>%
+  mutate(status_cle=replace_na(status_cle,"Unknown"))
+```
+
+## Exploratory Data Analysis
+
+Before we start with data wrangling, some data analysis shall be performed to see if we can get certain insights. From the chart below, we can see that almost 31% of the waterpoints are non-functional with 11% status that is unknown. To have 31% of the whole nation's water point be non-functional is mind boggling and this definitely deserves a deep dive into why it is happening.
+
+```{r}
+#| eval: false
+freq(data=wp_nga,
+     input = 'status_cle')
+```
+
+in the code chunk below,`filter` function of dplyr is used to select functional water points
+
+```{r}
+#| eval: false
+wpt_functional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Functional",
+             "Functional but not in use",
+             "Functional but needs repair"))
+```
+
+Below is the frequency statistics for the functional water points:
+
+```{r}
+#| eval: false
+freq(data = wpt_functional,
+     input = "status_cle")
+```
+
+Below is the frequency statistics for the non-functional water points:
+
+```{r}
+#| eval: false
+wpt_nonfunctional <- wp_nga %>%
+  filter(status_cle %in%
+           c("Abandoned/Decommissioned", 
+             "Abandoned",
+             "Non-Functional",
+             "Non functional due to dry season",
+             "Non-Functional due to dry season"))
+```
+
+```{r}
+#| eval: false
+freq(data=wpt_nonfunctional, 
+     input = 'status_cle')
+```
+
+We also filter the status unknown waterpoints into one set for further visualisation later
+
+```{r}
+#| eval: false
+wpt_unknown <- wp_nga %>%
+  filter(status_cle=="Unknown")
+```
+
+Next we look deeper into the types of water points available:
+
+```{r}
+#| eval: false
+freq(data=wpt_functional, 
+     input = 'water_te_2')
+```
+
+From the chart below and the one above, we can see that `Hand Pump` and `Mechanized Pump` are the only two more significant types of pumps used with hand pumps about 2/3 of entire population probably due to technological or logitistical constraints. As there is a higher percentage of functional hand pump water points than non-functional hand pump water points, it could be worth while to include it in this analysis.
+
+```{r}
+#| eval: false
+freq(data=wpt_nonfunctional, 
+     input = 'water_te_2')
+```
+
+A look at the water source finds that borehole takes up most of the population so we would not look further into this
+
+```{r}
+#| eval: false
+freq(data=wpt_nonfunctional, 
+     input = 'water_sour')
+```
+
+Next, we filter the hand pump and mechanised pump non-functional water points:
+
+```{r}
+#| eval: false
+wpt_nonfunctionalhand <- wpt_nonfunctional %>%
+  filter(water_te_2 %in%
+           c("Hand Pump"))
+wpt_nonfunctionalmech <- wpt_nonfunctional %>%
+  filter(water_te_2 %in%
+           c("Mechanized Pump"))
+
+```
+
+Here some additional data wrangling is done to generate the numbers for each type of status for the water points in each area:
+
+-   `total` : total number of water points
+
+-   `functional` : functional water points that could be in use or not in use
+
+-   `non-functional` : non-functional water points that includes water points that are not in use due to dry season
+
+-   `unknown` : water points which we have no information about the status
+
+In addition to that, 1 is add to `ShapeName` if duplicate is found in case there are two area names that are same but still has to be differentiated.
+
+```{r}
+#| eval: false
+nga_wp <- nga %>% 
+  mutate(`total wpt` = lengths(
+    st_intersects(nga, wp_nga))) %>%
+  mutate(`wpt functional` = lengths(
+    st_intersects(nga, wpt_functional))) %>%
+  mutate(`wpt non-functional` = lengths(
+    st_intersects(nga, wpt_nonfunctional))) %>%
+  mutate(`wpt unknown` = lengths(
+    st_intersects(nga, wpt_unknown))) %>%
+  mutate(`wpt non-functional` = replace_na(`wpt non-functional`, 0)) %>%
+  mutate(`wpt functional` = replace_na(`wpt functional`, 0)) %>%
+  mutate(`wpt non-functional hand pump` = lengths(
+    st_intersects(nga, wpt_nonfunctionalhand))) %>%
+  mutate(`wpt non-functional mech pump` = lengths(
+    st_intersects(nga, wpt_nonfunctionalmech))) %>%
+  mutate(shapeName = case_when(duplicated(shapeName) ~ str_c(shapeName, '1', sep = ''), TRUE ~ shapeName))
+```
+
+### Get Percentage of functional/non-functional against total
+
+Next some additional wrangling is done to get ratio or the percentage of functional and non-functional water points against the total
+
+```{r}
+#| eval: false
+nga_wp <- nga_wp %>%
+  mutate(pct_functional = case_when(
+    `wpt functional` == 0 ~ 0,
+    TRUE ~ `wpt functional`/`total wpt`
+    )) %>%
+  mutate(pct_nonfunctional = case_when(
+    `wpt non-functional` == 0 ~ 0,
+    TRUE ~ `wpt non-functional`/`total wpt`))
+```
+
+We then write this into a rds file before deleting the source files as they are too large to commit to github
+
+```{r}
+#| eval: false
+write_rds(nga_wp, "geodata/nga_wp.rds")
+```
+
+Below is the rough distribution plots of each tally of water point:
+
+-   `total`
+
+-   `functional`
+
+-   `non-functional`
+
+-   `unknown`
+
+```{r}
+
+nga_wp <- read_rds("geodata/nga_wp.rds")
+nga_wp26391 <- st_transform(nga_wp, 
+                              crs = 26391)
+total <- tm_shape(nga_wp26391) +
+  tm_fill("total wpt",
+          n = 5,
+          style = "jenks") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "total",legend.height = 0.25, main.title.size = 0.8,
+            legend.width = 0.35)
+wp_functional <- tm_shape(nga_wp26391) +
+  tm_fill("wpt functional",
+          n = 5,
+          style = "jenks") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "functional",legend.height = 0.25, main.title.size = 0.8,
+            legend.width = 0.35)
+wp_nonfunctional <- tm_shape(nga_wp26391) +
+  tm_fill("wpt non-functional",
+          n = 5,
+          style = "jenks") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "non-functional",legend.height = 0.25, main.title.size = 0.8,
+            legend.width = 0.35)
+unknown <- tm_shape(nga_wp26391) +
+  tm_fill("wpt unknown",
+          style = "jenks") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Unknown",legend.height = 0.25, main.title.size = 0.8,
+            legend.width = 0.35)
+
+
+tmap_arrange(total, wp_functional, wp_nonfunctional, unknown, asp=1, ncol=2)
+
+```
+
+## Analysis of non-functional water points
+
+### Functional water points(%) vs Non-functional water points(%)
+
+First observation is that for functional water points, there are more areas with high percentage of functioning water points (out of all water points) in the northern region of the country. This is especially true for the central northern regions. On the other hand, southern regions is observed to higher concentrations of non-functional water points.
+
+```{r}
+set.seed(8888)
+wp_functional <- tm_shape(nga_wp26391) +
+  tm_fill("pct_functional",
+          n = 5,
+          style = "bclust") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Ratio of functional water points",main.title.size = 1,legend.height = 0.25, 
+            legend.width = 0.35)
+wp_nonfunctional <- tm_shape(nga_wp26391) +
+  tm_fill("pct_nonfunctional",
+          n = 5,
+          style = "bclust") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Ratio of non-functional water points",main.title.size =1,legend.height = 0.25, 
+            legend.width = 0.35)
+
+tmap_arrange(wp_functional, wp_nonfunctional, ncol=2)
+```
+
+### Non-functional Mechanical Pump Waterpoint vs Non functional Hand pump Waterpoint
+
+At first glance, it seems that there are more non-functional mechanical pump waterpoints in the southern hemisphere of the country which correlates with the general non-functional waterpoint population. Meanwhile for non functional hand pump, it is not as concentrated but also has a few clusters where the number is quite high.
+
+```{r}
+wp_functional <- tm_shape(nga_wp26391) +
+  tm_fill("wpt non-functional mech pump",
+          n = 5,
+          style = "fisher") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "non-functional mechanical pump",main.title.size =1,legend.height = 0.25, 
+            legend.width = 0.35)
+wp_nonfunctional <- tm_shape(nga_wp26391) +
+  tm_fill("wpt non-functional hand pump",
+          n = 5,
+          style = "fisher") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "non-functional hand pump",main.title.size =1,legend.height = 0.25, 
+            legend.width = 0.35)
+
+tmap_arrange(wp_functional, wp_nonfunctional, ncol=2)
+```
+
+Next we take a look at the Queen contiguity based neighbours map
+
+```{r}
+wm_q <- poly2nb(nga_wp, queen=TRUE)
+summary(wm_q)
+```
+
+To get our longitude values we map the st_centroid function over the geometry column of us.bound and access the longitude value through double bracket notation \[\[\]\] and 1. This allows us to get only the longitude, which is the 1st value in each centroid and the latittude value which is the 2nd value
+
+```{r}
+longitude <- map_dbl(nga_wp$geometry, ~st_centroid(.x)[[1]])
+latitude <- map_dbl(nga_wp$geometry, ~st_centroid(.x)[[2]])
+```
+
+Here the latitude and longitude coordinates are binded using `cbind`
+
+```{r}
+coords <- cbind(longitude, latitude)
+```
+
+```{r}
+plot(nga_wp$geometry, border="lightgrey")
+plot(wm_q, coords, pch = 19, cex = 0.6, add = TRUE, col= "red")
+```
+
+```{r}
+rswm_q <- nb2listw(wm_q, style="W", zero.policy = TRUE)
+summary(rswm_q, zero.policy = TRUE)
+```
+
+```{r}
+dist <- nbdists(wm_q, coords, longlat = TRUE)
+ids <- lapply(dist, function(x) 1/(x))
+```
+
+```{r}
+rswm_ids <- nb2listw(wm_q, glist=ids, style="B", zero.policy=TRUE)
+
+summary(rswm_ids, zero.policy = TRUE)
+```
+
+We then get the average neighbour value which is also known as spatial lag using the `listw` function
+
+```{r}
+nga_wp.lag <- lag.listw(rswm_q, nga_wp$"pct_nonfunctional",zero.policy = TRUE)
+```
+
+Next we append the spatial lag column onto our dataframe
+
+```{r}
+lag.list <- list(nga_wp$shapeName, lag.listw(rswm_q, nga_wp$"pct_nonfunctional",zero.policy = TRUE))
+lag.res <- as.data.frame(lag.list)
+colnames(lag.res) <- c("shapeName", "lag Nonfunctional")
+nga_wp<- left_join(nga_wp,lag.res)
+```
+
+### Spatial lag with row standardized weights
+
+```{r}
+nonfunctional <- qtm(nga_wp, "pct_nonfunctional")
+lag_nonfunctional <- qtm(nga_wp, "lag Nonfunctional")
+tmap_arrange(nonfunctional, lag_nonfunctional, asp=1, ncol=2)
+```
+
+### Moran's I global auto correlation
+
+Based on Moran's I tests below, we can see that in general ,the null hypothesis that the non functional water points are randomly distributed is rejected. As Moran's I is positive, we can say that there is positive auto-correlation and there is clustering between areas with similar values.
+
+```{r}
+moran.test(nga_wp$"wpt non-functional", 
+           listw=rswm_q, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+The observation for nonfunctional waterpoint to total waterpoint ratio is the Moran's I is around 0.04 high and p value is still very low therefore null hypothesis is also rejected
+
+```{r}
+set.ZeroPolicyOption(TRUE)
+moran.test(nga_wp$"pct_nonfunctional", 
+           listw=rswm_q, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+For next two Moran's I test for `hand pump` and `mechanical pump`, we can see that both null hypothesis is also rejected with positive Moran's I score which suggest clustering of similar values with the hand pump having a higher value.
+
+```{r}
+moran.test(nga_wp$"wpt non-functional hand pump", 
+           listw=rswm_q, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+```{r}
+moran.test(nga_wp$"wpt non-functional mech pump", 
+           listw=rswm_q, 
+           zero.policy = TRUE, 
+           na.action=na.omit)
+```
+
+```{r}
+bperm= moran.mc(nga_wp$"pct_nonfunctional", 
+                listw=rswm_q, 
+                nsim=999, 
+                zero.policy = TRUE, 
+                na.action=na.omit)
+bperm
+```
+
+```{r}
+hist(bperm$res, 
+     freq=TRUE, 
+     breaks=20, 
+     xlab="Simulated Moran's I")
+abline(v=0, 
+       col="red") 
+```
+
+### Moran's I correlogram
+
+In the correlogram below, the distribution of Moran's I is rather significant at step 1 ranging from 0.4 to 0.5. the Moran's I score is it is clear that with the increase in order or steps, the Moran's I score decreases. This shows that there is some sort of spatial dependence and that the areas are more likely similar to neighbours at order 1 than neighbours at higher orders which makes sense geographically as resources could be shared if they are not too far off.
+
+```{r}
+MI_corr_nf <- sp.correlogram(wm_q,nga_wp$"pct_nonfunctional" , order = 10, method = "I", style = "W")
+
+plot(MI_corr_nf)
+```
+
+Geary's C correlogram shows a similar phenomena, where spatial autocorrelation drops and goes to 1 and beyond as the order goes up
+
+```{r}
+G_corr_nf <- sp.correlogram(wm_q,nga_wp$"pct_nonfunctional" , order = 10, method = "C", style = "W")
+
+plot(G_corr_nf)
+```
+
+## Further cluster and outlier analysis on non-functional waterpoints
+
+### Computing Local Moran's I
+
+```{r}
+fips <- order(nga_wp$shapeName)
+localMI <- localmoran(nga_wp$"pct_nonfunctional", rswm_q)
+head(localMI)
+```
+
+```{r}
+nga_wp.localMI <- cbind(nga_wp,localMI) %>%
+  rename(Pr.Ii = Pr.z....E.Ii..)
+```
+
+### Mapping local Moran's I
+
+```{r}
+local_moran <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Ii", 
+          style = "pretty",
+          palette = "RdBu",
+          title = "local moran statistics") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Moran's I score",legend.height = 0.25, 
+            main.title.size = 0.8,legend.width = 0.35)
+local_moran_pval <-tm_shape(nga_wp.localMI) +
+  tm_fill(col = "Pr.Ii", 
+          breaks=c(-Inf, 0.001, 0.01, 0.05, 0.1, Inf),
+          palette="-Blues", 
+          title = "local Moran's I p-values") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Local Moran's I p-value",legend.height = 0.25, 
+            main.title.size = 0.8,legend.width = 0.35)
+tmap_arrange(local_moran, local_moran_pval, asp=1, ncol=2)
+```
+
+### Moran Scatterplot with standardised variable
+
+Usually the Moran scatterplot is generated before we move to the LISA map
+
+```{r}
+nga_wp$Z.pct_nonfunctional <- scale(nga_wp$"pct_nonfunctional") %>% 
+  as.vector 
+```
+
+This scatter plot shows the relationship between the ratio/percentage of nonfunctional waterpoints and the mean value of non functional waterpoints of its neighbouring areas
+
+```{r}
+nci <- moran.plot(nga_wp$Z.pct_nonfunctional, rswm_q,
+                  labels=as.character(nga_wp$shapeName), 
+                  xlab="ratio of nonfunctional waterpoints", 
+                  ylab="Spatially Lag ratio")
+```
+
+Preparing LISA map
+
+```{r}
+quadrant <- vector(mode="numeric",length=nrow(localMI))
+nga_wp$"lag Nonfunctional" <- lag.listw(rswm_q, nga_wp$"pct_nonfunctional")
+DV <- nga_wp$"lag Nonfunctional" - mean(nga_wp$"lag Nonfunctional")  
+LM_I <- localMI[,1] - mean(localMI[,1])   
+signif <- 0.05  
+quadrant[DV <0 & LM_I>0] <- 1
+quadrant[DV >0 & LM_I<0] <- 2
+quadrant[DV <0 & LM_I<0] <- 3  
+quadrant[DV >0 & LM_I>0] <- 4     
+quadrant[localMI[,5]>signif] <- 0
+```
+
+### LISA Map
+
+LISA maps are good for visualising spatial correlation. IT allows us to know the area or clusters we should pay attention to or where there is significance. Second, it establishes a proportional relationship between the sum of the local statistics and a corresponding global statistic. For the top right of the map, it should be ignored as the values were changed from NA to 0, resulting in a huge low-low region
+
+```{r}
+nga_wp.localMI$quadrant <- quadrant
+colors <- c("#ffffff", "#2c7bb6", "#abd9e9", "#fdae61", "#d7191c")
+clusters <- c("insignificant", "low-low", "low-high", "high-low", "high-high")
+
+LISAmap <- tm_shape(nga_wp.localMI) +
+  tm_fill(col = "quadrant", 
+          style = "cat", 
+          palette = colors[c(sort(unique(quadrant)))+1], 
+          labels = clusters[c(sort(unique(quadrant)))+1],
+          popup.vars = c("")) +
+  tm_view(set.zoom.limits = c(11,17)) +
+  tm_borders(alpha=0.5) +
+  tm_layout(main.title = "Local Indicator of Spatial Association",
+            legend.height = 0.25, 
+            main.title.size = 0.8,legend.width = 0.35)
+tmap_arrange(local_moran, LISAmap, 
+             asp=1, ncol=2)
+```
+
+Based on the LISA map above and the map of Nigera region below, we can see there could be some interesting points where the high-high region(mostly clustered at bottom left) where waterpoints are most non-function are low lying or coastal regions. This could potentially mean that the waterpoints might lack maintenance or usage as the population there relies on other water sources but more investigation would be required to prove that this correlation does mean causation.
+
+![](images/paste-46B0C66D.png)
+
+### Hot spot and cold spot analysis
+
+First we determine the cutoff distance based on the coordinates. The statistics below show that the largest first neighbour distance is approximately 71.661 units.
+
+```{r}
+k1 <- knn2nb(knearneigh(coords))
+k1dists <- unlist(nbdists(k1, coords, longlat = TRUE))
+summary(k1dists)
+```
+
+we then convert the nb object into spatial weights object and also take a look at the statistics of the neighbour list
+
+```{r}
+wm_d62 <- dnearneigh(coords, 0, 62, longlat = TRUE)
+wm_d62
+```
+
+```{r}
+wm62_lw <- nb2listw(wm_d62, style = 'B')
+summary(wm62_lw)
+```
+
+```{r}
+knn <- knn2nb(knearneigh(coords, k=12))
+knn
+```
+
+```{r}
+knn_lw <- nb2listw(knn, style = 'B')
+summary(knn_lw)
+```
+
+```{r}
+gi.fixed <- localG(nga_wp$"pct_nonfunctional", wm62_lw)
+nga_wp.gi <- cbind(nga_wp, as.matrix(gi.fixed)) %>%
+  rename(gstat_fixed = as.matrix.gi.fixed.)
+```
+
+We can see from the heatmap that most of the hot spots are clusters at the bottom left of the map while the cold spots are at the top centre of the map
+
+```{r}
+map_nonfunctional <- tm_shape(nga_wp) +
+  tm_fill("pct_nonfunctional",
+          n = 5,
+          style = "bclust") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "Ratio of functional water points",main.title.size = 1,legend.height = 0.25, 
+            legend.width = 0.35)
+Gimap <-tm_shape(nga_wp.gi) +
+  tm_fill(col = "gstat_fixed", 
+          style = "pretty",
+          palette="-RdBu",
+          title = "local Gi") +
+  tm_borders(alpha = 0.5)+
+  tm_layout(main.title = "local Gi of non-functional water points",
+            main.title.size =1,legend.height = 0.25, 
+            legend.width = 0.35)
+
+tmap_arrange(map_nonfunctional, Gimap, asp=1, ncol=2)
+```
+
+### Adaptive distance Gi
+
+```{r}
+gi.adaptive <- localG(nga_wp$"pct_nonfunctional",knn_lw)
+nga_wp.gi <- cbind(nga_wp, as.matrix(gi.adaptive)) %>%
+  rename(gstat_adaptive = as.matrix.gi.adaptive.)
+```
+
+```{r}
+Gimap <- tm_shape(nga_wp.gi ) + 
+  tm_fill(col = "gstat_adaptive", 
+          style = "pretty", 
+          palette="-RdBu", 
+          title = "local Gi") + 
+  tm_borders(alpha = 0.5)+
+  tm_layout(main.title = "adaptive local Gi of non-functional water points",
+            main.title.size =1,legend.height = 0.25, 
+            legend.width = 0.35)
+
+tmap_arrange(map_nonfunctional,
+             Gimap, 
+             asp=1, 
+             ncol=2)
+```
+
+As usual we see that the hot spots are more towards the bottom region that are coastal areas, if we compare with the rainfall map below, there seems to be some correlation between the rainfall and the clusters. Based on this observation there is some correlation where cold spots are areas with lower rainfall (especially for northern regions). This means there is indeed a possibility that due to lack of other forms of water resource, the waterpoints are more well maintained as they are a valuable resource in these areas. This remains a conjecture till more studies are done.
+
+![](https://media.springernature.com/lw685/springer-static/image/art%253A10.1038%252Fs41598-020-58280-4/MediaObjects/41598_2020_58280_Fig3_HTML.png)
+
+### Non-functional hand pumps Analysis
+
+As hand pump water point makes up roughly 70% of all water points, it could be worthwhile to look at the hot spots and cold spots (especially since its concentration of non-functional water points differ from general population).
+
+```{r}
+gi.adaptivehand <- localG(nga_wp$"wpt non-functional hand pump",knn_lw)
+nga_wp.gi_hand <- cbind(nga_wp, as.matrix(gi.adaptivehand)) %>%
+  rename(gstat_adaptivehand = as.matrix.gi.adaptivehand.)
+```
+
+From the plots below, we can see that most hand pumps are non functional in the middle strip/section of the map. It is perhaps interesting to note that the hottest spot very likely coincides with the capital city, kaduna. Another small correlation found is by comparing with the rainfall map above. It seems that most hand pump hot spots are near regions classified as G_Savanna or Guinea Savannah. Could it be that more of these areas are savanna areas with lower human population or more animals that results in less maintenance of the waterpoints?
+
+```{r}
+map_nonfunctionalhand <- tm_shape(nga_wp) +
+  tm_fill("wpt non-functional hand pump",
+          n = 5,
+          style = "bclust") +
+  tm_borders(alpha = 0.5) +
+  tm_layout(main.title = "non-functional hand pumps",
+            main.title.size =1,legend.height = 0.25, legend.width = 0.35)
+Gimap <- tm_shape(nga_wp.gi_hand) + 
+  tm_fill(col = "gstat_adaptivehand", 
+          style = "pretty", 
+          palette="-RdBu", 
+          title = "local Gi") + 
+  tm_borders(alpha = 0.5)+
+  tm_layout(main.title = "local Gi of non-functional hand pumps",
+            main.title.size =1,legend.height = 0.25, legend.width = 0.35)
+
+tmap_arrange(map_nonfunctionalhand,
+             Gimap, 
+             asp=1, 
+             ncol=2)
+```
+
+## Conclusion
+
+Based on the various analysis and visualisation, we can quite safely say that there seems to be spatial auto-correlation in the various regions of Nigeria. There are clusters where less non-functional water points which are surround by neighbours with the similar ratio of non-functional water points and vice versa. Though we can draw some correlations based on the rainfall and rough landscape, there remains a lot of work to be done in order to draw a convincing conclusion. Such work could range from studying more types of data like how the water points became non functional and perhaps even going down to get surveys of people actually in charge of maintenance. To conclude, this is definitely a worthy cause to deep dive into and gather further insights.
+
+Credits
+
+-   Prof Kam (for providing various tips and data wrangling codes
+
+-   whatsapp group (very helpful community!)
