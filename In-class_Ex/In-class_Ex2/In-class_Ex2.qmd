@@ -640,7 +640,7 @@ tmap_arrange(map_nonfunctional,
 
 As usual we see that the hot spots are more towards the bottom region that are coastal areas, if we compare with the rainfall map below, there seems to be some correlation between the rainfall and the clusters. Based on this observation there is some correlation where cold spots are areas with lower rainfall (especially for northern regions). This means there is indeed a possibility that due to lack of other forms of water resource, the waterpoints are more well maintained as they are a valuable resource in these areas. This remains a conjecture till more studies are done.
 
-![](https://media.springernature.com/lw685/springer-static/image/art%253A10.1038%252Fs41598-020-58280-4/MediaObjects/41598_2020_58280_Fig3_HTML.png)
+### ![](images/41598_2020_58280_Fig3_HTML.png)
 
 ### Non-functional hand pumps Analysis
 
