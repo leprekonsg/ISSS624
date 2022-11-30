@@ -18,11 +18,11 @@ website:
           - text: In-Class Exercise 1
             href: In-class_Ex/In-class_Ex1/In-class_ex1.qmd
           - text: In-Class Exercise 2
-            href: In-class_Ex/In-class_Ex1/In-class_ex2.qmd
+            href: In-class_Ex/In-class_Ex2/In-class_ex2.qmd
       - text: Take Home Exercises
         menu: 
           - text: Take Home Exercise 1(Why Nigeria has so many broken waterpoints?)
-            href: In-class_Ex/In-class_Ex1/In-class_ex2.qmd
+            href: In-class_Ex/In-class_Ex2/In-class_ex2.qmd
     right:
       - href: index.qmd
         text: Home
