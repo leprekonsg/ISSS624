@@ -4,4 +4,8 @@ title: "ISSS624"
 
 Welcome to ISSS624 Geospatial Analytics Applications!
 
-In this webpage I am going to share with you my learning journey of geospatial analytics :o
+![](images/paste-6AE7FA02.png)
+
+In this webpage I am going to share with you my learning journey of geo(dude)spatial analytics
+
+Image reference: [Geodude by DannyMyBrother on DeviantArt](https://www.deviantart.com/dannymybrother/art/Geodude-480220515)
