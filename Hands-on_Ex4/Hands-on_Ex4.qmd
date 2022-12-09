@@ -275,8 +275,7 @@ Correlation matrix is commonly used to visualise the relationships between the i
 The code chunk below is used to plot a scatterplot matrix of the relationship between the independent variables in *condo_resale* data.frame.
 
 ```{r}
-corrplot(cor(condo_resale[, 5:23]), diag = FALSE, order = "AOE",
-         tl.pos = "td", tl.cex = 0.5, method = "number", type = "upper")
+corrplot.mixed(cor(condo_resale[, 5:23]), diag = NULL, order = "AOE",lower = "number", upper = "ellipse",tl.pos = "lt", tl.cex = 0.5,number.cex=0.3,lower.col = "black")
 ```
 
 Matrix reorder is very important for mining the hiden structure and patter in the matrix. There are four methods in corrplot (parameter order), named "AOE", "FPC", "hclust", "alphabet". In the code chunk above, AOE order is used. It orders the variables by using the *angular order of the eigenvectors* method suggested by [Michael Friendly](https://www.datavis.ca/papers/corrgram.pdf).
