@@ -269,7 +269,15 @@ rural <- tm_shape(nga_wp) +
   tm_layout(main.title = "total",legend.height = 0.25, main.title.size = 0.8,
             legend.width = 0.35)
 
-tmap_arrange(total, wp_functional, wp_nonfunctional, handpump,usageabv,usagebelow, asp=1, ncol=2)
+tmap_arrange(total, wp_functional, asp=1, ncol=2)
+```
+
+```{r}
+tmap_arrange(wp_nonfunctional, handpump, asp=1, ncol=2)
+```
+
+```{r}
+tmap_arrange(usageabv,usagebelow, asp=1, ncol=2)
 ```
 
 ```{r}
