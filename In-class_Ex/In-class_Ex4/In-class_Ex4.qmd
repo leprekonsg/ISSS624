@@ -664,11 +664,9 @@ tmap_arrange(AREA_SQM_SE, AREA_SQM_TV,
 tmap_mode("plot")
 ```
 
-<<<<<<< HEAD
 #### By URA Planning Region
-=======
-####  By URA Planning Region
->>>>>>> dd6f438525d409fbd2651268031103ea2b199af8
+
+> > > > > > > dd6f438525d409fbd2651268031103ea2b199af8
 
 ```{r}
 tm_shape(mpsz_svy21[mpsz_svy21$REGION_N=="CENTRAL REGION", ])+
