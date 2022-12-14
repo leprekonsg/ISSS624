@@ -1,8 +1,10 @@
 ---
 title: "Take-Home Exercise 2: Regionalisation with Spatially Constrained Cluster Analysis"
 editor: visual
-execute:
-  echo: false
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
 ---
 
 ## Overview
