@@ -5,13 +5,37 @@ editor: visual
 
 ## Overview
 
+For this take-home exercise, we would be exploring the concept of regionalisation with clustering analysis using a multivariate analysis on Nigeria's waterpoints. With clustering, we hope to be able to uncover multiple variables pairing that might point to a certain phenomena happening at one region of the country.
+
 ## Getting Started
 
-As usual, to get started, we will load the necessary R packages. For the purpose of this in-class exercise, three R packages will be used, they are:
+As usual, to get started, we will load the necessary R packages. For the purpose of this in-class exercise, multiple R packages will be used, they are:
 
--   sf for importing and processing geospatial data,
+-   
 
--   tidyverse for importing and processing non-spatial data. In this exercise, readr package will be used for importing wkt data and dplyr package will be used to wrangling the data.
+    -   Spatial data handling
+
+        -   **sf**, **rgdal** and **spdep**
+
+    -   Attribute data handling
+
+        -   **tidyverse**, especially **readr**, **ggplot2** and **dplyr**
+
+    -   Choropleth mapping
+
+        -   **tmap**
+
+    -   Multivariate data visualisation and analysis
+
+        -   **coorplot**, **ggpubr**, **GGAlly**, and **heatmaply**
+
+    -   Cluster analysis
+
+        -   **cluster**
+
+        -   **ClustGeo**
+
+        -   **NbClust**
 
 ```{r}
 pacman::p_load(rgdal, spdep, tmap, sf, ClustGeo, 
@@ -86,6 +110,8 @@ wp_sf <- st_join(wp_sf, nigeria)  %>%
 
 ## Exploratory Data Analysis
 
+First we look at the distribution of waterpoints based on their operational status
+
 ```{r}
 #| eval: false
 freq(data=wp_sf,
@@ -120,6 +146,8 @@ freq(data=wpt_nonfunctional,
      input = 'status_cle')
 ```
 
+Here we can see that hand pumps are a overwhelming potential for the type of water point so we will carry on using hand pump waterpoints as a variable.
+
 ```{r}
 #| eval: false
 freq(data=wp_sf, 
@@ -140,11 +168,15 @@ freq(data=wpt_handpump,
      input = 'water_te_2')
 ```
 
+Here we can see the general distribution is that the usage cap or limit is 1000 or below 1000.
+
 ```{r}
 #| eval: false
 freq(data=wp_sf, 
      input = 'usage_cap')
 ```
+
+Next we divide them and take a look if our previous split is correct
 
 ```{r}
 #| eval: false
@@ -164,6 +196,8 @@ freq(data=wpt_usage_less_1000,
      input = 'usage_cap')
 ```
 
+Then we take a look at how much of the area is considered rural (is_urban = False)
+
 ```{r}
 #| eval: false
 freq(data=wp_sf, 
@@ -181,6 +215,8 @@ wpt_rural <- wp_sf %>%
 freq(data=wpt_rural, 
      input = 'is_urban')
 ```
+
+For this part, we get the number of water points and their respective figures in each LGA by using the `mutate` function along with `lengths` and `st_intercepts`
 
 ```{r}
 #| eval: false
@@ -201,10 +237,14 @@ nga_wp <- nigeria %>%
     st_intersects(nigeria, wpt_rural)))
 ```
 
+This file is then saved:
+
 ```{r}
 #| eval: false
 write_rds(nga_wp, "geodata/nga_wp.rds")
 ```
+
+Here we read in the saved file while also removing the na fields for functional and non functional water points
 
 ```{r}
 nga_wp <- read_rds("geodata/nga_wp.rds")
@@ -212,10 +252,6 @@ nga_wp <- nga_wp %>%
   filter(`total wpt` > 0) %>%
   mutate(`wpt non-functional` = replace_na(`wpt non-functional`, 0)) %>%
   mutate(`wpt functional` = replace_na(`wpt functional`, 0))
-```
-
-```{r}
-
 ```
 
 ```{r}
@@ -377,6 +413,8 @@ tmap_arrange(total, pct_rural, asp=1, ncol=2)
 ```
 
 ### Summary Statistics
+
+Below we see the summary statistics for the dataframe and the various plots to see the summary statistics of each variable
 
 ```{r}
 summary(nga_wp)
@@ -557,8 +595,7 @@ As we see above, ward's method presents the best clustering structure with a sco
 
 ### Determining Optimal Clusters
 
-Determining the number of optimal cluster is also another difficult challenge in the realm of clustering. For this, we'll be using the gap statistic method, which is sort of similar to elbow method for choosing the optimal number of clusters.
-To compute the gap statistic, [*clusGap()*](https://www.rdocumentation.org/packages/cluster/versions/2.1.0/topics/clusGap) of [**cluster**](https://cran.r-project.org/web/packages/cluster/) package will be used. We specify max number of clusters to be 10, and number of monte carlo sampling to be [**500**]{.underline} as recommended by the documentation.
+Determining the number of optimal cluster is also another difficult challenge in the realm of clustering. For this, we'll be using the gap statistic method, which is sort of similar to elbow method for choosing the optimal number of clusters. To compute the gap statistic, [*clusGap()*](https://www.rdocumentation.org/packages/cluster/versions/2.1.0/topics/clusGap) of [**cluster**](https://cran.r-project.org/web/packages/cluster/) package will be used. We specify max number of clusters to be 10, and number of monte carlo sampling to be [**500**]{.underline} as recommended by the documentation.
 
 ```{r}
 set.seed(12345)
@@ -771,27 +808,200 @@ nga_wp_spatialcluster <- cbind(nga_wp_cluster, as.factor(groups_mat)) %>%
 qtm(nga_wp_spatialcluster, "SP_CLUSTER")
 ```
 
-### 
+## Spatially Constrained Clustering: ClustGeo Method
+
+### ClustGeo package
+
+ClustGeo package is customized R package built for tackling the analysis of geospatial clustering. It also has an algorithm or method like ward's method for hierarchical clustering named `hclustgeo()`.
+
+To keep things short, two matrices' dissimilarity are computed with a confounding variable alpha which can be between \[0,1\]. The second matrix provides the the dissimilarities in the **constraint space** while the first matrix can be non-euclidean and provides the dissimilarities in the **attribute/clustering variable space**. The criterion minimised at each stage is a convex combination of the homogeneity criterion calculated with the first matrix and the homogeneity criterion calculated with second matrix.
+
+The idea is then to determine a value of alpha which increases the spatial contiguity without deteriorating too much the quality of the solution based on the variables of interest. This need is supported by a function called `choicealpha()`.
+
+### Ward-like hierarchical clustering: ClustGeo
+
+To perform non-spatially constrained hierarchical clustering, we only need to provide the function a dissimilarity matrix as shown in the code chunk below.
+
+```{r}
+nongeo_cluster <- hclustgeo(proxmat)
+plot(nongeo_cluster, cex = 0.5)
+rect.hclust(nongeo_cluster, 
+            k = 6, 
+            border = 2:5)
+```
+
+Note that the dissimilarity matrix must be an object of class `dist`, i.e. an object obtained with the function `dist()`.
+
+#### Mapping the clusters formed
+
+```{r}
+groups <- as.factor(cutree(nongeo_cluster, k=6))
+```
+
+```{r}
+nga_wp_ngeo_cluster <- cbind(nga_wp, as.matrix(groups)) %>%
+  rename(`CLUSTER` = `as.matrix.groups.`)
+```
+
+```{r}
+qtm(nga_wp_ngeo_cluster, "CLUSTER")
+```
+
+### Spatially Constrained Hierarchical Clustering
+
+Before we can performed spatially constrained hierarchical clustering, a spatial distance matrix will be derived by using [`st_distance()`](https://r-spatial.github.io/sf/reference/geos_measures.html) of sf package.
+
+```{r}
+dist <- st_distance(nga_wp,nga_wp)
+distmat <- as.dist(dist)
+```
+
+Notice that `as.dist()` is used to convert the data frame into matrix.
+
+Next, `choicealpha()` will be used to determine a suitable value for the mixing parameter alpha as shown in the code chunk below.
+
+```{r}
+cr <- choicealpha(proxmat, distmat, range.alpha = seq(0, 1, 0.1), K=6, graph = TRUE)
+```
+
+With reference to the two plots above, we can see the best balance for attribute space versus constraint space is found between 0.3 and 0.4, therefore we will go with 0.35 for alpha
+
+```{r}
+clustG <- hclustgeo(proxmat, distmat, alpha = 0.35)
+```
+
+Next, `cutree()` is used to derive the cluster objecct.
+
+```{r}
+groups <- as.factor(cutree(clustG, k=6))
+```
+
+We will then join back the group list with *nga_wp (Nigerian waterpoint)* polygon feature data frame by using the code chunk below.
+
+```{r}
+nga_wp_Gcluster <- cbind(nga_wp, as.matrix(groups)) %>%
+  rename(`CLUSTER` = `as.matrix.groups.`)
+```
+
+```{r}
+qtm(nga_wp_Gcluster, "CLUSTER")
+```
+
+## Visual Interpretation of Clusters
+
+### Visualising individual clustering variable
+
+```{r}
+ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_functional)) +
+  geom_boxplot()
+```
+
+The boxplot reveals that cluster 6 has the highest percentage of functional water points while cluster 1 seems to have the largest distribution. We then visualise all 8 variables together
+
+```{r}
+
+pf <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_functional))+
+  geom_boxplot() +
+  ggtitle("functional waterpoints(%)")
+
+pn <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_nonfunctional))+
+  geom_boxplot() +
+  ggtitle("non-functional waterpoints(%)")
 
 
+ph <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_handpump))+
+  geom_boxplot() +
+  ggtitle("handpump waterpoints(%)")
 
+pr <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_rural))+
+  geom_boxplot() +
+  ggtitle("rural waterpoints(%)")
 
+pu <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_usage1000))+
+  geom_boxplot() +
+  ggtitle("waterpoints(%)limit 1000")
 
+pb <- ggplot(data = nga_wp_ngeo_cluster,
+       aes(x = CLUSTER, y = pct_usage_below_1000))+
+  geom_boxplot() +
+  ggtitle("waterpoints(%)limit < 1000")
 
+ggarrange(pf, pn,ph,pr,pu,pb,
+          ncol =2,
+          nrow = 3)
+```
 
+From the box plot above, we can describe cluter 6 as the cluster with mainly handpump and mostly rural with most water point limit below 1000 and they have the more areas with higher percentages of functional water point.
 
+In contrast, we can see that cluster 2 has more areas with relatively higher percentage of non-functional water points, it also has one of the lowest distributions for percentage of handpumps which means that likely has more mechanical pumps while it also has high amount of area with high percentage of waterpoints with usage limit at 1000. The higher water limit coupled with most water point being mechanical water points could have contributed to more non-functional water points and the clustering has helped to bring up this potential correlation.
 
+### Multivariate Visualisation
 
+Past studies shown that parallel coordinate plot can be used to reveal clustering variables by cluster very effectively. In the code chunk below, [`ggparcoord()`](https://ggobi.github.io/ggally/reference/ggparcoord.html) of [**GGally**](https://ggobi.github.io/ggally/) package
 
+```{r}
+ggarrange(
+ggparcoord(data = nga_wp_ngeo_cluster[nga_wp_ngeo_cluster$CLUSTER %in% c(1,2,3),], 
+           columns = c(13:18), 
+           scale = "globalminmax",
+           alphaLines = 0.1,
+           boxplot = TRUE, 
+           title = "Multiple Parallel Coordinates Plots of LGA waterpoint Variables by Cluster") +
+  facet_grid(~ CLUSTER) + 
+  theme(axis.text.x = element_text(angle = 30,size = 5)),
+ggparcoord(data = nga_wp_ngeo_cluster[nga_wp_ngeo_cluster$CLUSTER %in% c(4,5,6),], 
+           columns = c(13:18), 
+           scale = "globalminmax",
+           alphaLines = 0.1,
+           boxplot = TRUE, 
+           title = "Multiple Parallel Coordinates Plots of LGA waterpoint Variables by Cluster") +
+  facet_grid(~ CLUSTER) + 
+  theme(axis.text.x = element_text(angle = 30,size = 5)),
+  ncol = 1,
+  nrow = 2
+)
 
+```
 
+For this plot, we use the uniminmax to ensure every variable is scaled to \[0,1\]. WE can see that from this, [cluster 1]{.underline} on top left is least rural, and in general areas in the cluster have relatively low percentage of handpump waterpoints. with some outliers and the cluster has a mean of 50% functional waterpoints with the largest distribution for this value. The same observation applies as described in the observations above where cluster 6 in bottom right can be seen with the highest percentage of functional waterpoints, handpump water points and usage limit below 1000. Next, we take a look at the mean for each cluster:
 
+```{r}
+nga_wp_ngeo_cluster %>% 
+  st_set_geometry(NULL) %>%
+  group_by(CLUSTER) %>%
+  summarise(mean_functional = mean(pct_functional),
+            mean_nonfunctional = mean(pct_nonfunctional),
+            mean_handpump = mean(pct_handpump),
+            mean_rural = mean(pct_rural),
+            mean_usage1000 = mean(pct_usage1000),
+            mean_usage_below_1000 = mean(pct_usage_below_1000))
+```
 
+Looking at the mean for each value in the clusters, we can safely say that they support the observations made above where mean of cluster 6 are high for rural, usage below 1000, handpump water points and functional percentage. While cluster 1 is the least rural with lowest amount of handpump. Another possible correlation to look at count be that the lower the percentage the handpump, the more likely that the percentage of functional waterpoints is lower.
 
+## Conclusion
 
+Based on what has been observed, we could quite safely say that spatially constrained clustering appears to be much better for working on the challenge and analysis of geospatial clusters. We can see that without the spatial constraints, the clusters appear more fragmented and might not be able to achieve the objective of allowing the analyst working on the project to draw the right insights. Below, we can take a final look between a SKATER clustered map and a hierarchical clustered map.
 
+```{r}
+groups_mat <- as.matrix(clust6$groups)
+nga_wp_spatialcluster <- cbind(nga_wp_cluster, as.factor(groups_mat)) %>%
+  rename(`SP_CLUSTER`=`as.factor.groups_mat.`)
+nga_wp_spatialcluster_map <- qtm(nga_wp_spatialcluster, "SP_CLUSTER", title = "SKATER clustering")
 
+nga_wp_cluster_map <- qtm(nga_wp_cluster,
+                   "CLUSTER", title = "Hierarchical clustering") 
 
+tmap_arrange(nga_wp_spatialcluster_map, nga_wp_cluster_map,
+             asp=NA, ncol=2)
+```
 
+### Credits
 
-
+As usual, most credits goes to Prof Kam for his well structured in class exercise we can use to reference off for the exercise. Also many credits to our exemplary classmate Jordan for having such a well structured code for the rest of the class to refer to.
