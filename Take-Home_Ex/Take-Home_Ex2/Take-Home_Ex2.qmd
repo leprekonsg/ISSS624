@@ -826,6 +826,10 @@ nga_wp_spatialcluster <- cbind(nga_wp_cluster, as.factor(groups_mat)) %>%
 qtm(nga_wp_spatialcluster, "SP_CLUSTER")
 ```
 
+The SKATER clustering seems to actually reflect geographical conditions that is similar to the rainfall map below where cluster 1 sit in the riverdelta region(e.g. Kogi) and sits in between two well drained soil clusters.
+
+![](images/paste-41355EF5.png)
+
 ## Spatially Constrained Clustering: ClustGeo Method
 
 ### ClustGeo package
