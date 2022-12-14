@@ -1,6 +1,8 @@
 ---
 title: "Take-Home Exercise 2: Regionalisation with Spatially Constrained Cluster Analysis"
 editor: visual
+execute:
+  echo: false
 ---
 
 ## Overview
@@ -118,7 +120,7 @@ freq(data=wp_sf,
      input = 'status_cle')
 ```
 
-## 
+## ![](images/paste-B49516A2.png)
 
 ```{r}
 #| eval: false
@@ -146,6 +148,8 @@ freq(data=wpt_nonfunctional,
      input = 'status_cle')
 ```
 
+![](images/paste-3EF04571.png)
+
 Here we can see that hand pumps are a overwhelming potential for the type of water point so we will carry on using hand pump waterpoints as a variable.
 
 ```{r}
@@ -153,6 +157,8 @@ Here we can see that hand pumps are a overwhelming potential for the type of wat
 freq(data=wp_sf, 
      input = 'water_te_2')
 ```
+
+![](images/paste-4D691D64.png)
 
 As there are some Hand Pumps that are labelled slightly differently, we have to use `str_detect` from `stringr` library to do a wildcard detection where we filter for anything that contains "Hand Pump"
 
@@ -168,6 +174,8 @@ freq(data=wpt_handpump,
      input = 'water_te_2')
 ```
 
+![](images/paste-157C6827.png)
+
 Here we can see the general distribution is that the usage cap or limit is 1000 or below 1000.
 
 ```{r}
@@ -175,6 +183,8 @@ Here we can see the general distribution is that the usage cap or limit is 1000 
 freq(data=wp_sf, 
      input = 'usage_cap')
 ```
+
+![](images/paste-78CA827C.png)
 
 Next we divide them and take a look if our previous split is correct
 
@@ -196,6 +206,8 @@ freq(data=wpt_usage_less_1000,
      input = 'usage_cap')
 ```
 
+![](images/paste-9C835C80.png)
+
 Then we take a look at how much of the area is considered rural (is_urban = False)
 
 ```{r}
@@ -203,6 +215,8 @@ Then we take a look at how much of the area is considered rural (is_urban = Fals
 freq(data=wp_sf, 
      input = 'is_urban')
 ```
+
+![](images/paste-DFD9B889.png)
 
 ```{r}
 #| eval: false
@@ -215,6 +229,8 @@ wpt_rural <- wp_sf %>%
 freq(data=wpt_rural, 
      input = 'is_urban')
 ```
+
+![](images/paste-03131751.png)
 
 For this part, we get the number of water points and their respective figures in each LGA by using the `mutate` function along with `lengths` and `st_intercepts`
 
