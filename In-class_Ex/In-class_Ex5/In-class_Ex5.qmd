@@ -217,4 +217,80 @@ prob_T <- tm_shape(Osun) +
 prob_T
 ```
 
-Rerun by excluding two insignificant values
+## Removing non-significant variables
+
+From the statistics above, we could see that the two variables `distance_to_primary_road` and `distance_to_secondary_road`are statistically insignificant. Therefore, we will rerun and exclude the two insignificant values, `distance_to_primary_road` and `distance_to_secondary_road .`
+
+First we rebuild the glm model
+
+```{r}
+model <- glm(status ~ 
+               distance_to_tertiary_road +
+               distance_to_city + 
+               distance_to_town +
+               is_urban +
+               usage_capacity +
+               water_source_clean +
+               water_point_population + 
+               local_population_1km,
+             data = Osun_wp_sf_clean,
+             family = binomial(link = 'logit'))
+blr_regress(model)
+blr_confusion_matrix(model,cutoff=0.5)
+```
+
+```{r}
+bw.fixed <- bw.ggwr(status ~
+                 distance_to_tertiary_road+
+                 distance_to_city+
+                 distance_to_town+
+                 water_point_population+
+                 local_population_1km+
+                   is_urban+
+                   usage_capacity+
+                   water_source_clean,
+                 data=Osun_wp_sp,
+                 family="binomial",
+                 approach = "AIC",
+                 kernel = "gaussian",
+                 adaptive = FALSE,
+                 longlat = FALSE)
+```
+
+```{r}
+gwlr.fixed <-  ggwr.basic(status~
+                            distance_to_primary_road+
+                 distance_to_secondary_road+
+                 distance_to_tertiary_road+
+                 distance_to_city+
+                 distance_to_town+
+                 water_point_population+
+                 local_population_1km+
+                   is_urban+
+                   usage_capacity+
+                   water_source_clean,
+                 data=Osun_wp_sp,
+                 bw=bw.fixed,
+                 family="binomial",
+                 kernel = "gaussian",
+                 adaptive = FALSE,
+                 longlat = FALSE )
+```
+
+```{r}
+gwr.fixed <- as.data.frame(gwlr.fixed$SDF)
+gwr.fixed <- gwr.fixed %>%
+  mutate(most = ifelse(
+    gwr.fixed$yhat >= 0.5,T,F
+  ))
+gwr.fixed$y <- as.factor(gwr.fixed$y)
+gwr.fixed$most <- as.factor(gwr.fixed$most)
+CM <- confusionMatrix(data=gwr.fixed$most,reference = gwr.fixed$y)
+CM
+```
+
+## Conclusion
+
+From the above, we can see that removing the statistically insignificant variables would not affect the end result significantly and might even result in slightly better accuracy sometimes! To conclude, we have learnt that by localising our predictions using geographically weighted regression models, we can improve the results of our model. Another small thing to note is that, to have a more complete setup, some data would probably have to set aside for validation and testing.
+
+Would like to thank prof Kam for his generous sharing and wonderful teaching through out this short semester, it has really helped us learnt a lot more than we could have!
